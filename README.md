@@ -31,10 +31,10 @@ Since this package is not yet published to PyPI, install it directly from the so
 
 ```bash
 # Install with uv (recommended)
-uv add git+<repository-url>
+uv add https://github.com/2ToTheNthPower/vapor.git
 
 # Or clone and install locally
-git clone <repository-url>
+git clone https://github.com/2ToTheNthPower/vapor.git
 cd vapor
 
 # Install with uv
