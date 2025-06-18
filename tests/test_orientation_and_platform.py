@@ -348,3 +348,40 @@ class TestPlatform:
         # Relative acceleration should follow similar logic
         assert abs(relative_state['acceleration']['x'] + 1.0) < 1e-6  # -1 m/s²
         assert abs(relative_state['acceleration']['y'] - 2.0) < 1e-6  # +2 m/s²
+
+    def test_platform_location_update_bug(self):
+        """Test that Platform location properly updates when switching between coordinate systems"""
+        platform = Platform()
+        
+        # Set initial LLA location (San Francisco)
+        initial_lat, initial_lon, initial_alt = 37.7749, -122.4194, 100.0
+        platform.set_position_lla(lat=initial_lat, lon=initial_lon, alt=initial_alt)
+        
+        # Verify initial location
+        lat1, lon1, alt1 = platform.get_position_lla()
+        assert abs(lat1 - initial_lat) < 1e-6
+        assert abs(lon1 - initial_lon) < 1e-6
+        assert abs(alt1 - initial_alt) < 1e-3
+        
+        # Set to entirely different WCS location (approximately Tokyo area)
+        # These ECEF coordinates correspond to roughly Tokyo, Japan
+        different_x, different_y, different_z = -3958000.0, 3352000.0, 3726000.0
+        platform.set_position_wcs(x=different_x, y=different_y, z=different_z)
+        
+        # Get the new LLA location
+        lat2, lon2, alt2 = platform.get_position_lla()
+        
+        # Verify the location actually changed (bug test)
+        # If there's a bug, the LLA location might be the same as the original
+        lat_diff = abs(lat2 - initial_lat)
+        lon_diff = abs(lon2 - initial_lon)
+        
+        # The location should have changed significantly (more than 1 degree)
+        # since we moved from San Francisco to Tokyo area
+        assert lat_diff > 1.0, f"Latitude should have changed significantly, but diff was {lat_diff}"
+        assert lon_diff > 1.0, f"Longitude should have changed significantly, but diff was {lon_diff}"
+        
+        # Verify the new location is reasonable for the WCS coordinates we set
+        # Tokyo is approximately at (35.6762, 139.6503)
+        assert 30.0 < lat2 < 40.0, f"Expected latitude around Tokyo area, got {lat2}"
+        assert 135.0 < lon2 < 145.0, f"Expected longitude around Tokyo area, got {lon2}"
