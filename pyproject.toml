@@ -1,0 +1,15 @@
+[project]
+name = "vapor"
+version = "0.1.0"
+description = "Velocity, Acceleration, Position, Orientation tracking in various coordinate systems"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=2.3.0",
+    "pyproj>=3.7.1",
+    "pytest>=8.4.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
