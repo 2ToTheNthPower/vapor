@@ -143,12 +143,11 @@ class TestQuaternionAndRotationMatrixEdgeCases:
             assert not np.any(np.isinf(matrix_result))
     
     def test_quaternion_normalization_edge_cases(self):
-        """Test quaternion normalization with very small magnitudes"""
+        """Test quaternion normalization validation"""
         orientation = OrientationTracker()
         
-        # Test very small quaternions (near-zero magnitude)
+        # Test very small quaternions (near-zero magnitude) - should be rejected
         small_quaternions = [
-            (1e-10, 1e-10, 1e-10, 1e-10),
             (1e-15, 0, 0, 0),
             (0, 1e-15, 0, 0),
             (0, 0, 1e-15, 0),
@@ -156,14 +155,17 @@ class TestQuaternionAndRotationMatrixEdgeCases:
         ]
         
         for w, x, y, z in small_quaternions:
-            # Should handle very small but non-zero quaternions
-            orientation.set_orientation_quaternion_ned(w, x, y, z)
-            
-            result_quat = orientation.get_orientation_quaternion_ned()
-            
-            # Result should be normalized
-            magnitude = math.sqrt(sum(comp**2 for comp in result_quat))
-            assert abs(magnitude - 1.0) < 1e-10
+            # Should reject quaternions too small for reliable normalization
+            with pytest.raises(ValueError, match="Quaternion magnitude is too small for reliable normalization"):
+                orientation.set_orientation_quaternion_ned(w, x, y, z)
+        
+        # Test quaternion that's small but can be normalized 
+        orientation.set_orientation_quaternion_ned(1e-8, 1e-8, 1e-8, 1e-8)
+        result_quat = orientation.get_orientation_quaternion_ned()
+        
+        # Result should be normalized
+        magnitude = math.sqrt(sum(comp**2 for comp in result_quat))
+        assert abs(magnitude - 1.0) < 1e-10
     
     def test_matrix_orthogonality_boundary_cases(self):
         """Test rotation matrices at the boundary of orthogonality tolerance"""
@@ -259,64 +261,80 @@ class TestInvalidInputDataHandling:
     """Test handling of invalid input data"""
     
     def test_nan_coordinate_inputs(self):
-        """Test system behavior with NaN coordinate inputs
-        
-        NOTE: Currently the system does NOT validate for NaN inputs.
-        This test documents current behavior and should be updated 
-        when input validation is added.
-        """
+        """Test system properly rejects NaN coordinate inputs"""
         platform = Platform()
         
-        # Currently, NaN inputs are accepted (this is a gap in validation)
-        platform.set_position_lla(lat=float('nan'), lon=0.0, alt=0.0)
+        # NaN inputs should be rejected with ValueError
+        with pytest.raises(ValueError, match="Latitude cannot be NaN"):
+            platform.set_position_lla(lat=float('nan'), lon=0.0, alt=0.0)
         
-        # Getting position back should preserve the NaN
-        pos_lla = platform.get_position_lla()
-        assert math.isnan(pos_lla[0])  # Latitude should be NaN
-        
-        # This demonstrates the need for input validation
-        # TODO: Add input validation to reject NaN values
+        with pytest.raises(ValueError, match="Longitude cannot be NaN"):
+            platform.set_position_lla(lat=0.0, lon=float('nan'), alt=0.0)
+            
+        with pytest.raises(ValueError, match="Altitude cannot be NaN"):
+            platform.set_position_lla(lat=0.0, lon=0.0, alt=float('nan'))
+            
+        # Test NaN velocity inputs
+        with pytest.raises(ValueError, match="Velocity north cannot be NaN"):
+            platform.set_velocity_ned(v_north=float('nan'), v_east=0.0, v_down=0.0)
+            
+        # Test NaN acceleration inputs  
+        with pytest.raises(ValueError, match="Acceleration north cannot be NaN"):
+            platform.set_acceleration_ned(a_north=float('nan'), a_east=0.0, a_down=0.0)
+            
+        # Test NaN orientation inputs
+        with pytest.raises(ValueError, match="Roll cannot be NaN"):
+            platform.set_orientation_euler_ned(roll=float('nan'), pitch=0.0, yaw=0.0)
     
     def test_infinite_coordinate_inputs(self):
-        """Test system behavior with infinite coordinate inputs
-        
-        NOTE: Currently the system does NOT validate for infinite inputs.
-        This test documents current behavior.
-        """
+        """Test system properly rejects infinite coordinate inputs"""
         platform = Platform()
         
-        # Currently, infinite inputs are accepted (this is a gap in validation)
-        platform.set_position_lla(lat=float('inf'), lon=0.0, alt=0.0)
-        
-        # Getting position back should preserve the infinity
-        pos_lla = platform.get_position_lla()
-        assert math.isinf(pos_lla[0])  # Latitude should be infinite
+        # Infinite inputs should be rejected with ValueError
+        with pytest.raises(ValueError, match="Latitude cannot be infinite"):
+            platform.set_position_lla(lat=float('inf'), lon=0.0, alt=0.0)
+            
+        with pytest.raises(ValueError, match="Longitude cannot be infinite"):
+            platform.set_position_lla(lat=0.0, lon=float('inf'), alt=0.0)
+            
+        with pytest.raises(ValueError, match="Altitude cannot be infinite"):
+            platform.set_position_lla(lat=0.0, lon=0.0, alt=float('inf'))
         
         # Same for velocity
-        platform.set_velocity_ned(v_north=float('inf'), v_east=0.0, v_down=0.0)
-        # TODO: Add input validation to reject infinite values
+        with pytest.raises(ValueError, match="Velocity north cannot be infinite"):
+            platform.set_velocity_ned(v_north=float('inf'), v_east=0.0, v_down=0.0)
+            
+        # Same for acceleration
+        with pytest.raises(ValueError, match="Acceleration north cannot be infinite"):
+            platform.set_acceleration_ned(a_north=float('inf'), a_east=0.0, a_down=0.0)
+            
+        # Same for orientation
+        with pytest.raises(ValueError, match="Roll cannot be infinite"):
+            platform.set_orientation_euler_ned(roll=float('inf'), pitch=0.0, yaw=0.0)
     
     def test_out_of_range_coordinates(self):
-        """Test coordinates outside valid ranges
-        
-        NOTE: Currently the system does NOT validate coordinate ranges.
-        This test documents current behavior.
-        """
+        """Test coordinates outside valid ranges are rejected"""
         platform = Platform()
         
-        # Currently, out-of-range coordinates are accepted
-        platform.set_position_lla(lat=91.0, lon=0.0, alt=0.0)  # Invalid latitude
-        platform.set_position_lla(lat=-91.0, lon=0.0, alt=0.0)  # Invalid latitude
-        platform.set_position_lla(lat=0.0, lon=181.0, alt=0.0)  # Invalid longitude
-        platform.set_position_lla(lat=0.0, lon=-181.0, alt=0.0)  # Invalid longitude
-        
-        # System accepts these values (demonstrates need for validation)
-        pos_lla = platform.get_position_lla()
-        assert pos_lla[1] == -181.0  # Longitude preserved as-is
-        
-        # TODO: Add validation for coordinate ranges:
-        # - Latitude: -90° to +90°
-        # - Longitude: -180° to +180°
+        # Out-of-range coordinates should be rejected
+        with pytest.raises(ValueError, match="Latitude must be between -90° and \\+90°"):
+            platform.set_position_lla(lat=91.0, lon=0.0, alt=0.0)  # Invalid latitude
+            
+        with pytest.raises(ValueError, match="Latitude must be between -90° and \\+90°"):
+            platform.set_position_lla(lat=-91.0, lon=0.0, alt=0.0)  # Invalid latitude
+            
+        with pytest.raises(ValueError, match="Longitude must be between -180° and \\+180°"):
+            platform.set_position_lla(lat=0.0, lon=181.0, alt=0.0)  # Invalid longitude
+            
+        with pytest.raises(ValueError, match="Longitude must be between -180° and \\+180°"):
+            platform.set_position_lla(lat=0.0, lon=-181.0, alt=0.0)  # Invalid longitude
+            
+        # Test altitude validation
+        with pytest.raises(ValueError, match="Altitude must be reasonable"):
+            platform.set_position_lla(lat=0.0, lon=0.0, alt=-20000.0)  # Too low
+            
+        with pytest.raises(ValueError, match="Altitude must be reasonable"):
+            platform.set_position_lla(lat=0.0, lon=0.0, alt=2e9)  # Too high
     
     def test_zero_magnitude_quaternion(self):
         """Test zero-magnitude quaternion handling"""
@@ -351,6 +369,24 @@ class TestInvalidInputDataHandling:
         ])
         with pytest.raises(ValueError, match="Matrix must have determinant of 1"):
             orientation.set_orientation_matrix_ned(reflection_matrix)
+            
+        # Matrix with NaN values
+        nan_matrix = np.array([
+            [1.0, 0.0, float('nan')],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0]
+        ])
+        with pytest.raises(ValueError, match="Rotation matrix contains NaN values"):
+            orientation.set_orientation_matrix_ned(nan_matrix)
+            
+        # Matrix with infinite values
+        inf_matrix = np.array([
+            [1.0, 0.0, 0.0],
+            [0.0, float('inf'), 0.0],
+            [0.0, 0.0, 1.0]
+        ])
+        with pytest.raises(ValueError, match="Rotation matrix contains infinite values"):
+            orientation.set_orientation_matrix_ned(inf_matrix)
 
 
 class TestNumericalPrecisionLimits:

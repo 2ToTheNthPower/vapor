@@ -3,6 +3,7 @@
 import math
 from typing import Tuple
 from pyproj import Transformer, CRS
+from ..utils import validate_latitude, validate_longitude, validate_altitude, validate_coordinate_value
 
 
 class PositionTracker:
@@ -21,10 +22,22 @@ class PositionTracker:
     
     def set_reference_lla(self, lat: float, lon: float, alt: float) -> None:
         """Set the reference point for NED coordinate system"""
+        validate_latitude(lat)
+        validate_longitude(lon)
+        validate_altitude(alt)
         self._reference_lla = (lat, lon, alt)
     
     def set_location_wcs(self, x: float, y: float, z: float) -> None:
         """Set position in World Coordinate System (ECEF)"""
+        validate_coordinate_value(x, "ECEF X coordinate")
+        validate_coordinate_value(y, "ECEF Y coordinate")
+        validate_coordinate_value(z, "ECEF Z coordinate")
+        
+        # Basic sanity check for ECEF coordinates (should be within Earth-like distances)
+        coord_magnitude = math.sqrt(x*x + y*y + z*z)
+        if coord_magnitude > 1e8:  # 100,000 km from Earth center
+            raise ValueError(f"ECEF coordinates are unreasonably far from Earth center: {coord_magnitude/1000:.1f} km")
+        
         self._wcs_position = (x, y, z)
         # Convert to LLA for internal consistency
         lon, lat, alt = self._ecef_to_wgs84.transform(x, y, z)
@@ -32,6 +45,10 @@ class PositionTracker:
     
     def set_location_lla(self, lat: float, lon: float, alt: float) -> None:
         """Set position in Latitude/Longitude/Altitude"""
+        validate_latitude(lat)
+        validate_longitude(lon)
+        validate_altitude(alt)
+        
         self._lla_position = (lat, lon, alt)
         # Convert to WCS for internal consistency
         x, y, z = self._wgs84_to_ecef.transform(lon, lat, alt)
@@ -39,6 +56,15 @@ class PositionTracker:
     
     def set_location_ned(self, north: float, east: float, down: float) -> None:
         """Set position using North/East/Down coordinates relative to reference point"""
+        validate_coordinate_value(north, "North coordinate")
+        validate_coordinate_value(east, "East coordinate") 
+        validate_coordinate_value(down, "Down coordinate")
+        
+        # Sanity check for reasonable NED distances
+        ned_magnitude = math.sqrt(north*north + east*east + down*down)
+        if ned_magnitude > 1e7:  # 10,000 km from reference point
+            raise ValueError(f"NED coordinates are unreasonably far from reference point: {ned_magnitude/1000:.1f} km")
+        
         if self._reference_lla is None:
             raise ValueError("Reference point not set for NED coordinates")
         

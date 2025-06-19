@@ -3,6 +3,7 @@
 import math
 import numpy as np
 from typing import Tuple
+from ..utils import validate_angle, validate_coordinate_value
 
 
 class OrientationTracker:
@@ -15,6 +16,10 @@ class OrientationTracker:
     
     def set_orientation_euler_ned(self, roll: float, pitch: float, yaw: float) -> None:
         """Set orientation using Euler angles in NED frame (degrees)"""
+        validate_angle(roll, "Roll")
+        validate_angle(pitch, "Pitch")
+        validate_angle(yaw, "Yaw")
+        
         self._euler_ned = (roll, pitch, yaw)
         # Convert to quaternion and matrix for internal consistency
         self._quaternion_ned = self._euler_to_quaternion(roll, pitch, yaw)
@@ -22,10 +27,18 @@ class OrientationTracker:
     
     def set_orientation_quaternion_ned(self, w: float, x: float, y: float, z: float) -> None:
         """Set orientation using quaternion in NED frame"""
+        validate_coordinate_value(w, "Quaternion w component")
+        validate_coordinate_value(x, "Quaternion x component") 
+        validate_coordinate_value(y, "Quaternion y component")
+        validate_coordinate_value(z, "Quaternion z component")
+        
         # Normalize quaternion
         norm = math.sqrt(w*w + x*x + y*y + z*z)
         if norm == 0:
             raise ValueError("Quaternion cannot have zero magnitude")
+        if norm < 1e-10:
+            raise ValueError(f"Quaternion magnitude is too small for reliable normalization: {norm}")
+        
         self._quaternion_ned = (w/norm, x/norm, y/norm, z/norm)
         # Convert to Euler and matrix for internal consistency
         self._euler_ned = self._quaternion_to_euler(self._quaternion_ned)
@@ -35,10 +48,19 @@ class OrientationTracker:
         """Set orientation using rotation matrix in NED frame"""
         if matrix.shape != (3, 3):
             raise ValueError("Rotation matrix must be 3x3")
+        
+        # Check for NaN or infinite values in matrix
+        if np.any(np.isnan(matrix)):
+            raise ValueError("Rotation matrix contains NaN values")
+        if np.any(np.isinf(matrix)):
+            raise ValueError("Rotation matrix contains infinite values")
+        
         if not np.allclose(np.dot(matrix, matrix.T), np.eye(3), atol=1e-6):
             raise ValueError("Matrix must be orthogonal")
-        if not np.allclose(np.linalg.det(matrix), 1.0, atol=1e-6):
-            raise ValueError("Matrix must have determinant of 1")
+        
+        det = np.linalg.det(matrix)
+        if not np.allclose(det, 1.0, atol=1e-6):
+            raise ValueError(f"Matrix must have determinant of 1, got {det}")
         
         self._matrix_ned = matrix.copy()
         # Convert to quaternion and Euler for internal consistency

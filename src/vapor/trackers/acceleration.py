@@ -2,6 +2,7 @@
 
 import math
 from typing import Tuple
+from ..utils import validate_latitude, validate_longitude, validate_altitude, validate_acceleration_component, validate_coordinate_value
 
 
 class AccelerationTracker:
@@ -15,18 +16,37 @@ class AccelerationTracker:
     
     def set_reference_lla(self, lat: float, lon: float, alt: float) -> None:
         """Set the reference point for NED coordinate system"""
+        validate_latitude(lat)
+        validate_longitude(lon)
+        validate_altitude(alt)
         self._reference_lla = (lat, lon, alt)
     
     def set_acceleration_wcs(self, ax: float, ay: float, az: float) -> None:
         """Set acceleration in World Coordinate System (ECEF)"""
+        validate_acceleration_component(ax, "X")
+        validate_acceleration_component(ay, "Y")
+        validate_acceleration_component(az, "Z")
         self._wcs_acceleration = (ax, ay, az)
     
     def set_acceleration_lla_rates(self, lat_accel: float, lon_accel: float, alt_accel: float) -> None:
         """Set acceleration as LLA second derivatives (degrees/s², degrees/s², m/s²)"""
+        validate_coordinate_value(lat_accel, "Latitude acceleration")
+        validate_coordinate_value(lon_accel, "Longitude acceleration")
+        validate_acceleration_component(alt_accel, "altitude acceleration")
+        
+        # Sanity check for angular accelerations
+        if abs(lat_accel) > 3600.0:  # More than 1 deg/s² seems excessive for most applications
+            raise ValueError(f"Latitude acceleration is unreasonably high: {lat_accel} deg/s²")
+        if abs(lon_accel) > 3600.0:
+            raise ValueError(f"Longitude acceleration is unreasonably high: {lon_accel} deg/s²")
+        
         self._lla_rates = (lat_accel, lon_accel, alt_accel)
     
     def set_acceleration_ned(self, a_north: float, a_east: float, a_down: float) -> None:
         """Set acceleration in North/East/Down"""
+        validate_acceleration_component(a_north, "north")
+        validate_acceleration_component(a_east, "east")
+        validate_acceleration_component(a_down, "down")
         self._ned_acceleration = (a_north, a_east, a_down)
     
     def get_acceleration_wcs(self) -> Tuple[float, float, float]:

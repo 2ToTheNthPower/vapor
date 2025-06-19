@@ -3,6 +3,7 @@
 import math
 from typing import Tuple
 from pyproj import CRS
+from ..utils import validate_latitude, validate_longitude, validate_altitude, validate_velocity_component, validate_coordinate_value
 
 
 class VelocityTracker:
@@ -20,18 +21,37 @@ class VelocityTracker:
     
     def set_reference_lla(self, lat: float, lon: float, alt: float) -> None:
         """Set the reference point for NED coordinate system"""
+        validate_latitude(lat)
+        validate_longitude(lon)
+        validate_altitude(alt)
         self._reference_lla = (lat, lon, alt)
     
     def set_velocity_wcs(self, vx: float, vy: float, vz: float) -> None:
         """Set velocity in World Coordinate System (ECEF)"""
+        validate_velocity_component(vx, "X")
+        validate_velocity_component(vy, "Y")
+        validate_velocity_component(vz, "Z")
         self._wcs_velocity = (vx, vy, vz)
     
     def set_velocity_lla_rates(self, lat_rate: float, lon_rate: float, alt_rate: float) -> None:
         """Set velocity as LLA rates (degrees/s, degrees/s, m/s)"""
+        validate_coordinate_value(lat_rate, "Latitude rate")
+        validate_coordinate_value(lon_rate, "Longitude rate")
+        validate_velocity_component(alt_rate, "altitude rate")
+        
+        # Sanity check for angular rates (shouldn't exceed reasonable rotation speeds)
+        if abs(lat_rate) > 360.0:  # More than 1 revolution per second
+            raise ValueError(f"Latitude rate is unreasonably high: {lat_rate} deg/s")
+        if abs(lon_rate) > 360.0:  # More than 1 revolution per second
+            raise ValueError(f"Longitude rate is unreasonably high: {lon_rate} deg/s")
+        
         self._lla_rates = (lat_rate, lon_rate, alt_rate)
     
     def set_velocity_ned(self, v_north: float, v_east: float, v_down: float) -> None:
         """Set velocity in North/East/Down"""
+        validate_velocity_component(v_north, "north")
+        validate_velocity_component(v_east, "east")
+        validate_velocity_component(v_down, "down")
         self._ned_velocity = (v_north, v_east, v_down)
     
     def get_velocity_wcs(self) -> Tuple[float, float, float]:
