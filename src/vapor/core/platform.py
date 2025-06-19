@@ -40,8 +40,8 @@ class Platform:
     def get_position_lla(self) -> Tuple[float, float, float]:
         return self.position.get_location_lla()
     
-    def get_position_ned(self) -> Tuple[float, float, float]:
-        return self.position.get_location_ned()
+    def get_position_ned(self, reference_lla: Tuple[float, float, float] = None) -> Tuple[float, float, float]:
+        return self.position.get_location_ned(reference_lla)
     
     # Velocity setters and getters
     def set_velocity_wcs(self, vx: float, vy: float, vz: float) -> None:
@@ -56,8 +56,8 @@ class Platform:
     def get_velocity_wcs(self) -> Tuple[float, float, float]:
         return self.velocity.get_velocity_wcs()
     
-    def get_velocity_ned(self) -> Tuple[float, float, float]:
-        return self.velocity.get_velocity_ned()
+    def get_velocity_ned(self, reference_lla: Tuple[float, float, float] = None) -> Tuple[float, float, float]:
+        return self.velocity.get_velocity_ned(reference_lla)
     
     # Acceleration setters and getters
     def set_acceleration_wcs(self, ax: float, ay: float, az: float) -> None:
@@ -72,8 +72,8 @@ class Platform:
     def get_acceleration_wcs(self) -> Tuple[float, float, float]:
         return self.acceleration.get_acceleration_wcs()
     
-    def get_acceleration_ned(self) -> Tuple[float, float, float]:
-        return self.acceleration.get_acceleration_ned()
+    def get_acceleration_ned(self, reference_lla: Tuple[float, float, float] = None) -> Tuple[float, float, float]:
+        return self.acceleration.get_acceleration_ned(reference_lla)
     
     # Orientation setters and getters
     def set_orientation_euler_ned(self, roll: float, pitch: float, yaw: float) -> None:
@@ -108,15 +108,19 @@ class Platform:
         Returns:
             Dictionary containing relative position, velocity, acceleration, and orientation
         """
-        # Get NED states for both platforms
-        self_pos_ned = np.array(self.get_position_ned())
-        other_pos_ned = np.array(other_platform.get_position_ned())
+        # Use this platform's position as the common reference point for NED calculations
+        # This ensures both platforms' NED coordinates are calculated relative to the same origin
+        reference_lla = self.get_position_lla()
         
-        self_vel_ned = np.array(self.get_velocity_ned())
-        other_vel_ned = np.array(other_platform.get_velocity_ned())
+        # Get NED states for both platforms using the common reference
+        self_pos_ned = np.array(self.get_position_ned(reference_lla))
+        other_pos_ned = np.array(other_platform.get_position_ned(reference_lla))
         
-        self_accel_ned = np.array(self.get_acceleration_ned())
-        other_accel_ned = np.array(other_platform.get_acceleration_ned())
+        self_vel_ned = np.array(self.get_velocity_ned(reference_lla))
+        other_vel_ned = np.array(other_platform.get_velocity_ned(reference_lla))
+        
+        self_accel_ned = np.array(self.get_acceleration_ned(reference_lla))
+        other_accel_ned = np.array(other_platform.get_acceleration_ned(reference_lla))
         
         # Calculate relative vectors in NED
         rel_pos_ned = other_pos_ned - self_pos_ned

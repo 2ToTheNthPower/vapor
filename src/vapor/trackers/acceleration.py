@@ -38,24 +38,35 @@ class AccelerationTracker:
         else:
             raise ValueError("Acceleration not set or insufficient data for conversion")
     
-    def get_acceleration_ned(self) -> Tuple[float, float, float]:
-        """Get acceleration in North/East/Down"""
+    def get_acceleration_ned(self, reference_lla: Tuple[float, float, float] = None) -> Tuple[float, float, float]:
+        """Get acceleration in North/East/Down
+        
+        Args:
+            reference_lla: Optional reference point (lat, lon, alt). If not provided, uses stored reference.
+        """
         if self._ned_acceleration is not None:
             return self._ned_acceleration
-        elif self._wcs_acceleration is not None and self._reference_lla is not None:
-            return self._wcs_to_ned_acceleration()
-        elif self._lla_rates is not None and self._reference_lla is not None:
-            return self._lla_rates_to_ned_acceleration()
+        elif self._wcs_acceleration is not None:
+            return self._wcs_to_ned_acceleration(reference_lla)
+        elif self._lla_rates is not None:
+            return self._lla_rates_to_ned_acceleration(reference_lla)
         else:
             raise ValueError("Acceleration not set or insufficient data for conversion")
     
-    def _wcs_to_ned_acceleration(self) -> Tuple[float, float, float]:
-        """Convert WCS acceleration to NED acceleration"""
-        if self._reference_lla is None:
+    def _wcs_to_ned_acceleration(self, reference_lla: Tuple[float, float, float] = None) -> Tuple[float, float, float]:
+        """Convert WCS acceleration to NED acceleration
+        
+        Args:
+            reference_lla: Optional reference point (lat, lon, alt). If not provided, uses stored reference.
+        """
+        if reference_lla is not None:
+            ref_lat, ref_lon, ref_alt = reference_lla
+        elif self._reference_lla is not None:
+            ref_lat, ref_lon, ref_alt = self._reference_lla
+        else:
             raise ValueError("Reference point not set")
         
         ax, ay, az = self._wcs_acceleration
-        ref_lat, ref_lon, _ = self._reference_lla
         
         # Convert using rotation matrix (same as velocity)
         ref_lat_rad = math.radians(ref_lat)
@@ -95,13 +106,20 @@ class AccelerationTracker:
         
         return (ax, ay, az)
     
-    def _lla_rates_to_ned_acceleration(self) -> Tuple[float, float, float]:
-        """Convert LLA acceleration rates to NED acceleration"""
-        if self._reference_lla is None:
+    def _lla_rates_to_ned_acceleration(self, reference_lla: Tuple[float, float, float] = None) -> Tuple[float, float, float]:
+        """Convert LLA acceleration rates to NED acceleration
+        
+        Args:
+            reference_lla: Optional reference point (lat, lon, alt). If not provided, uses stored reference.
+        """
+        if reference_lla is not None:
+            ref_lat, ref_lon, ref_alt = reference_lla
+        elif self._reference_lla is not None:
+            ref_lat, ref_lon, ref_alt = self._reference_lla
+        else:
             raise ValueError("Reference point not set")
         
         lat_accel, lon_accel, alt_accel = self._lla_rates
-        ref_lat, _, _ = self._reference_lla
         
         # Convert angular accelerations to linear accelerations
         R_earth = 6378137.0  # WGS84 equatorial radius in meters

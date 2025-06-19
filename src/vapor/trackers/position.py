@@ -83,15 +83,23 @@ class PositionTracker:
             raise ValueError("Position not set")
         return self._lla_position
     
-    def get_location_ned(self) -> Tuple[float, float, float]:
-        """Get position in North/East/Down relative to reference point"""
+    def get_location_ned(self, reference_lla: Tuple[float, float, float] = None) -> Tuple[float, float, float]:
+        """Get position in North/East/Down relative to reference point
+        
+        Args:
+            reference_lla: Optional reference point (lat, lon, alt). If not provided, uses stored reference.
+        """
         if self._lla_position is None:
             raise ValueError("Position not set")
-        if self._reference_lla is None:
+        
+        if reference_lla is not None:
+            ref_lat, ref_lon, ref_alt = reference_lla
+        elif self._reference_lla is not None:
+            ref_lat, ref_lon, ref_alt = self._reference_lla
+        else:
             raise ValueError("Reference point not set for NED coordinates")
         
         lat, lon, alt = self._lla_position
-        ref_lat, ref_lon, ref_alt = self._reference_lla
         
         # Convert both points to ECEF
         x, y, z = self._wgs84_to_ecef.transform(lon, lat, alt)

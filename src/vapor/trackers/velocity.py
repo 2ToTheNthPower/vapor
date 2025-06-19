@@ -43,24 +43,35 @@ class VelocityTracker:
         else:
             raise ValueError("Velocity not set or insufficient data for conversion")
     
-    def get_velocity_ned(self) -> Tuple[float, float, float]:
-        """Get velocity in North/East/Down"""
+    def get_velocity_ned(self, reference_lla: Tuple[float, float, float] = None) -> Tuple[float, float, float]:
+        """Get velocity in North/East/Down
+        
+        Args:
+            reference_lla: Optional reference point (lat, lon, alt). If not provided, uses stored reference.
+        """
         if self._ned_velocity is not None:
             return self._ned_velocity
-        elif self._wcs_velocity is not None and self._reference_lla is not None:
-            return self._wcs_to_ned_velocity()
-        elif self._lla_rates is not None and self._reference_lla is not None:
-            return self._lla_rates_to_ned_velocity()
+        elif self._wcs_velocity is not None:
+            return self._wcs_to_ned_velocity(reference_lla)
+        elif self._lla_rates is not None:
+            return self._lla_rates_to_ned_velocity(reference_lla)
         else:
             raise ValueError("Velocity not set or insufficient data for conversion")
     
-    def _wcs_to_ned_velocity(self) -> Tuple[float, float, float]:
-        """Convert WCS velocity to NED velocity"""
-        if self._reference_lla is None:
+    def _wcs_to_ned_velocity(self, reference_lla: Tuple[float, float, float] = None) -> Tuple[float, float, float]:
+        """Convert WCS velocity to NED velocity
+        
+        Args:
+            reference_lla: Optional reference point (lat, lon, alt). If not provided, uses stored reference.
+        """
+        if reference_lla is not None:
+            ref_lat, ref_lon, ref_alt = reference_lla
+        elif self._reference_lla is not None:
+            ref_lat, ref_lon, ref_alt = self._reference_lla
+        else:
             raise ValueError("Reference point not set")
         
         vx, vy, vz = self._wcs_velocity
-        ref_lat, ref_lon, _ = self._reference_lla
         
         # Convert using rotation matrix
         ref_lat_rad = math.radians(ref_lat)
@@ -100,13 +111,20 @@ class VelocityTracker:
         
         return (vx, vy, vz)
     
-    def _lla_rates_to_ned_velocity(self) -> Tuple[float, float, float]:
-        """Convert LLA rates to NED velocity"""
-        if self._reference_lla is None:
+    def _lla_rates_to_ned_velocity(self, reference_lla: Tuple[float, float, float] = None) -> Tuple[float, float, float]:
+        """Convert LLA rates to NED velocity
+        
+        Args:
+            reference_lla: Optional reference point (lat, lon, alt). If not provided, uses stored reference.
+        """
+        if reference_lla is not None:
+            ref_lat, ref_lon, ref_alt = reference_lla
+        elif self._reference_lla is not None:
+            ref_lat, ref_lon, ref_alt = self._reference_lla
+        else:
             raise ValueError("Reference point not set")
         
         lat_rate, lon_rate, alt_rate = self._lla_rates
-        ref_lat, _, _ = self._reference_lla
         
         # Convert angular rates to linear velocities
         # Earth radius approximation
